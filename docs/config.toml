@@ -1,0 +1,33 @@
+baseURL = "/"
+languageCode = "en-us"
+title = "AInglenix"
+themesDir = "themes"
+theme = "hugo-whisper-theme"
+
+pygmentsCodeFences = true
+pygmentsCodefencesGuessSyntax = true
+pygmentsUseClasses = true
+
+[params]
+  hompage_button = false
+  homepage_intro = 'AInglenix is the development commons for AIngle. Productive. Portable. Predictable.'
+
+  [params.redirect]
+    enable = true
+    url = "https://developer.aingle.ai/docs/install"
+    delay = 10
+
+  [params.homepage_meta_tags]
+    meta_description = "AInglenix is a nix-shell environment for AIngle hApp Development"
+    meta_og_title = "AInglenix"
+    meta_og_type = "website"
+    meta_og_url = "https://github.com/AIngleLab/ainglenix"
+    meta_og_image = "/images/79f6577e3c8102e1f0caf8d2f43d4fcf472a3e34.png"
+    meta_og_description = "Hugo Whisper is a documentation theme built with Hugo."
+    meta_twitter_card = "summary"
+    meta_twitter_site = "@aingle"
+    meta_twitter_creator = "@aingle"
+
+  [params.logo]
+      mobile = "/images/79f6577e3c8102e1f0caf8d2f43d4fcf472a3e34.png"
+      standard  = "/images/79f6577e3c8102e1f0caf8d2f43d4fcf472a3e34.png"

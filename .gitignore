@@ -1,0 +1,9 @@
+result
+.bash_history
+.cargo
+Cargo.lock
+target
+.DS_Store
+tmp
+.idea
+.idea/*

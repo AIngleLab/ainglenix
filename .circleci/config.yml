@@ -1,0 +1,189 @@
+version: 2.1
+
+commands:
+  build-docker:
+    description: "Build and deploy a docker box"
+    parameters:
+      box:
+        type: string
+        default: "minimal"
+    steps:
+      - checkout
+      - run: ./docker/login
+      - run:
+          no_output_timeout: 30m
+          command: ./docker/build << parameters.box >> $CIRCLE_BRANCH
+      - run: ./docker/push << parameters.box >> $CIRCLE_BRANCH
+
+jobs:
+  build:
+    docker:
+      - image: aingle/ainglenix:latest
+    steps:
+      - checkout
+
+      - run:
+          name: Set up Ai's Hydra cache
+          command: ./ci/setup-hydra-cache.sh
+
+      # warm nix
+      - run: nix-shell --run echo
+
+      # run env tests
+      - run: ./test/environment.sh
+
+      # run shell tests
+      - run: nix-shell --run hn-test
+
+  debian:
+    docker:
+      - image: aingle/ainglenix:debian
+    steps:
+      - checkout
+      - run:
+          command: |
+            ./ci/setup-hydra-cache.sh
+            . /home/docker/.nix-profile/etc/profile.d/nix.sh
+            nix-shell --run echo
+            nix-shell --run hn-test
+            HN_VERBOSE=true $(nix-build . --no-link -A pkgs.ainglenix)/bin/ainglenix --run hn-test
+
+  ubuntu:
+    docker:
+      - image: aingle/ainglenix:ubuntu
+    steps:
+      - checkout
+      - run:
+          name: Set up Ai's Hydra cache
+          command: ./ci/setup-hydra-cache.sh
+      - run:
+          command: |
+            . /home/docker/.nix-profile/etc/profile.d/nix.sh
+            nix-shell --run echo
+            nix-shell --run hn-test
+            HN_VERBOSE=true $(nix-build . --no-link -A pkgs.ainglenix)/bin/ainglenix --run hn-test
+
+  # THIS IS SECURITY SENSITVE
+  # READ THESE
+  # https://circleci.com/blog/deploying-documentation-to-github-pages-with-continuous-integration/
+  # https://discuss.circleci.com/t/adding-ssh-keys-fails/7747/24
+  deploy-github-pages:
+    docker:
+      - image: aingle/ainglenix:latest
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "52:70:20:1e:fe:e3:1c:74:cc:b9:5e:b4:04:30:03:e6"
+      - checkout
+      - run:
+          name: Set up Ai's Hydra cache
+          command: ./ci/setup-hydra-cache.sh
+      - run:
+          name: Deploy github pages
+          command: |
+            git config user.name "$GITHUB_PAGES_DEPLOY_USER"
+            git config user.email "$GITHUB_PAGES_DEPLOY_EMAIL"
+            nix-shell --run hn-docs-github-pages
+
+  mac:
+    macos:
+      xcode: "12.0.0"
+    environment:
+      NIXPKGS_ALLOW_UNFREE: 1
+    steps:
+      - checkout
+      - run:
+          name: Set up Ai's Hydra cache
+          command: ./ci/setup-hydra-cache.sh
+      - run:
+          name: Standard tests
+          no_output_timeout: 30m
+          command: |
+            # fix for "too many open files" that breaks tokio and lmdb
+            ulimit -n 10240
+            # catalina nixos install
+            sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
+            . /Users/distiller/.nix-profile/etc/profile.d/nix.sh
+            # do tests
+            nix-shell --run echo
+            nix-shell --run hn-test
+            HN_VERBOSE=true $(nix-build . --no-link -A pkgs.ainglenix)/bin/ainglenix --run hn-test
+
+  docker-build-latest:
+    resource_class: large
+    machine: true
+    steps:
+      - build-docker:
+          box: latest
+
+  docker-build-ubuntu:
+    resource_class: large
+    machine: true
+    steps:
+      - build-docker:
+          box: ubuntu
+
+  docker-build-debian:
+    resource_class: large
+    machine: true
+    steps:
+      - build-docker:
+          box: debian
+
+  docker-build-minimal:
+    resource_class: large
+    machine: true
+    steps:
+      - build-docker:
+          box: minimal
+
+workflows:
+  version: 2
+  tests:
+    jobs:
+      - build
+      - debian
+      - ubuntu
+      - mac
+      - docker-build-latest:
+          filters:
+            branches:
+              only:
+                - love
+                - master
+                - develop
+          requires:
+            - build
+      - docker-build-ubuntu:
+          filters:
+            branches:
+              only:
+                - love
+                - master
+                - develop
+          requires:
+            - build
+      - docker-build-debian:
+          filters:
+            branches:
+              only:
+                - love
+                - master
+                - develop
+          requires:
+            - build
+      - docker-build-minimal:
+          filters:
+            branches:
+              only:
+                - love
+                - master
+                - develop
+          requires:
+            - build
+      - deploy-github-pages:
+          filters:
+            branches:
+              only: love
+          requires:
+            - build
